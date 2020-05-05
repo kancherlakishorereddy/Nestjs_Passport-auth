@@ -6,10 +6,12 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  HttpException,
+  HttpStatus,
 } from "@nestjs/common";
 import { AppService } from "./app.service";
 import { AuthGuard } from "@nestjs/passport";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, MulterModule } from "@nestjs/platform-express";
 
 @Controller()
 @UseGuards(AuthGuard())
@@ -22,8 +24,22 @@ export class AppController {
   }
 
   @Post("upload")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      dest: "./assets/uploadedFiles",
+      limits: { fileSize: 2000000, files: 1 },
+      fileFilter(req, file, cb) {
+        if (file.mimetype == "application/pdf") cb(null, true);
+        else cb(null, false);
+      },
+    })
+  )
   uploadFile(@UploadedFile() file) {
-    console.log(file);
+    if (file === undefined)
+      throw new HttpException(
+        "Only PDF files can be uploaded. Check your file format",
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE
+      );
+    return `${file.originalname} successfully uploaded`;
   }
 }
